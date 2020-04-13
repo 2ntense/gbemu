@@ -1,5 +1,6 @@
 #include "instructions.h"
 #include <stdio.h>
+#include <stdbool.h>
 
 uint8_t *get_r(uint8_t y, gb_t *gb)
 {
@@ -51,6 +52,35 @@ uint16_t fetch_nn(gb_t *gb)
 uint8_t fetch_n(gb_t *gb)
 {
     return gb->mem[gb->reg.pc + 1];
+}
+
+void set_flag(uint8_t flag, gb_t *gb)
+{
+    gb->reg.af.reg.lo |= flag;
+}
+
+void reset_flag(uint8_t flag, gb_t *gb)
+{
+    gb->reg.af.reg.lo &= ~flag;
+}
+
+uint8_t get_flag(uint8_t flag, gb_t *gb)
+{
+    uint8_t *f = &gb->reg.af.reg.lo;
+    switch (flag)
+    {
+    case FLAG_Z:
+        return (*f & FLAG_Z) >> FLAG_Z_INDEX;
+    case FLAG_N:
+        return (*f & FLAG_N) >> FLAG_N_INDEX;
+    case FLAG_H:
+        return (*f & FLAG_H) >> FLAG_H_INDEX;
+    case FLAG_C:
+        return (*f & FLAG_C) >> FLAG_C_INDEX;
+    default:
+        printf("get_flag, flag not found: 0x%02x", flag);
+        break;
+    }
 }
 
 void ld_nn_sp(uint16_t nn, gb_t *gb)
@@ -140,9 +170,118 @@ void ld_r_n(uint8_t *r, uint8_t n)
 
 void rlca(gb_t *gb)
 {
-    
+    uint8_t *a = &gb->reg.af.reg.hi;
+    if (*a >> 7 == 1)
+    {
+        set_flag(FLAG_C, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_C, gb);
+    }
+    reset_flag(FLAG_Z, gb);
+    reset_flag(FLAG_N, gb);
+    reset_flag(FLAG_H, gb);
+    *a = (*a << 1) | (*a >> (sizeof(*a) * 8 - 1));
 }
 
+void rrca(gb_t *gb)
+{
+    uint8_t *a = &gb->reg.af.reg.hi;
+    if (*a & 1 == 1)
+    {
+        set_flag(FLAG_C, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_C, gb);
+    }
+    reset_flag(FLAG_Z, gb);
+    reset_flag(FLAG_N, gb);
+    reset_flag(FLAG_H, gb);
+    *a = (*a >> 1) | (*a << (sizeof(*a) * 8 - 1));
+}
+
+void rla(gb_t *gb)
+{
+    uint8_t *a = &gb->reg.af.reg.hi;
+    if (*a >> 7 == 1)
+    {
+        set_flag(FLAG_C, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_C, gb);
+    }
+    reset_flag(FLAG_Z, gb);
+    reset_flag(FLAG_N, gb);
+    reset_flag(FLAG_H, gb);
+    *a = (*a << 1) | (*a >> (sizeof(*a) * 8 - 1));
+    if (get_flag(FLAG_C, gb) == 1)
+    {
+        *a |= 1;
+    }
+    else
+    {
+        *a &= 0;
+    }
+}
+
+void rra(gb_t *gb)
+{
+    uint8_t *a = &gb->reg.af.reg.hi;
+    if (*a & 1 == 1)
+    {
+        set_flag(FLAG_C, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_C, gb);
+    }
+    reset_flag(FLAG_Z, gb);
+    reset_flag(FLAG_N, gb);
+    reset_flag(FLAG_H, gb);
+    *a = (*a >> 1) | (*a << (sizeof(*a) * 8 - 1));
+    if (get_flag(FLAG_C, gb) == 1)
+    {
+        *a |= (1 << 7);
+    }
+    else
+    {
+        *a &= ~(1 << 7);
+    }
+}
+
+void daa(gb_t *gb)
+{
+    // TODO daa
+}
+
+void cpl(gb_t *gb)
+{
+    gb->reg.af.reg.hi = ~gb->reg.af.reg.hi;
+}
+
+void scf(gb_t *gb)
+{
+    set_flag(FLAG_C, gb);
+    reset_flag(FLAG_N, gb);
+    reset_flag(FLAG_H, gb);
+}
+
+void ccf(gb_t *gb)
+{
+    if (get_flag(FLAG_C, gb) == 1)
+    {
+        reset_flag(FLAG_C, gb);
+    }
+    else
+    {
+        set_flag(FLAG_C, gb);
+    }
+    reset_flag(FLAG_N, gb);
+    reset_flag(FLAG_H, gb);
+}
 
 uint8_t fetch_opcode(gb_t *gb)
 {
@@ -264,18 +403,25 @@ void parse_opcode(uint8_t opcode, gb_t *gb)
                 rlca(gb);
                 break;
             case 1:
+                rrca(gb);
                 break;
             case 2:
+                rla(gb);
                 break;
             case 3:
+                rra(gb);
                 break;
             case 4:
+                daa(gb);
                 break;
             case 5:
+                cpl(gb);
                 break;
             case 6:
+                scf(gb);
                 break;
             case 7:
+                ccf(gb);
                 break;
             default:
                 break;
