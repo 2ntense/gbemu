@@ -85,6 +85,16 @@ uint8_t get_flag(uint8_t flag, gb_t *gb)
     }
 }
 
+uint8_t *pop_stack(gb_t *gb)
+{
+    return &gb->mem[--gb->reg.sp];
+}
+
+void set_pc(uint16_t pc, gb_t *gb)
+{
+    gb->reg.pc = pc;
+}
+
 void ld_nn_sp(uint16_t nn, gb_t *gb)
 {
     gb->mem[nn] = gb->reg.sp;
@@ -382,7 +392,7 @@ void sub_a_r(uint8_t z, gb_t *gb)
     }
     else
     {
-        set_flag(FLAG_H, gb);
+        reset_flag(FLAG_H, gb);
     }
     // C flag
     if (*src > *reg_a)
@@ -408,7 +418,162 @@ void sub_a_r(uint8_t z, gb_t *gb)
 
 void sbc_a_r(uint8_t z, gb_t *gb)
 {
-    
+    uint8_t *reg_a = &gb->reg.af.reg.hi;
+    uint8_t *src = get_r(z, gb);
+    // TODO check expression
+    if (((int16_t)(*reg_a & 0xF) - ((int16_t)(*src & 0xF))) < 0)
+    {
+        set_flag(FLAG_H, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_H, gb);
+    }
+    // C flag
+    if ((*src + get_flag(FLAG_C, gb)) > *reg_a)
+    {
+        set_flag(FLAG_C, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_C, gb);
+    }
+    *reg_a -= (*src + get_flag(FLAG_C, gb));
+    // Z flag
+    if (*reg_a == 0)
+    {
+        set_flag(FLAG_Z, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_Z, gb);
+    }
+    set_flag(FLAG_N, gb);
+}
+
+void and_a_r(uint8_t z, gb_t *gb)
+{
+    uint8_t *reg_a = &gb->reg.af.reg.hi;
+    *reg_a &= *get_r(z, gb);
+    if (*reg_a == 0)
+    {
+        set_flag(FLAG_Z, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_Z, gb);
+    }
+    reset_flag(FLAG_N, gb);
+    set_flag(FLAG_H, gb);
+    reset_flag(FLAG_C, gb);
+}
+
+void xor_a_r(uint8_t z, gb_t *gb)
+{
+    uint8_t *reg_a = &gb->reg.af.reg.hi;
+    *reg_a ^= *get_r(z, gb);
+    if (*reg_a == 0)
+    {
+        set_flag(FLAG_Z, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_Z, gb);
+    }
+    reset_flag(FLAG_N, gb);
+    reset_flag(FLAG_H, gb);
+    reset_flag(FLAG_C, gb);
+}
+
+void or_a_r(uint8_t z, gb_t *gb)
+{
+    uint8_t *reg_a = &gb->reg.af.reg.hi;
+    *reg_a |= *get_r(z, gb);
+    if (*reg_a == 0)
+    {
+        set_flag(FLAG_Z, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_Z, gb);
+    }
+    reset_flag(FLAG_N, gb);
+    reset_flag(FLAG_H, gb);
+    reset_flag(FLAG_C, gb);
+}
+
+void cp_a_r(uint8_t z, gb_t *gb)
+{
+    uint8_t *reg_a = &gb->reg.af.reg.hi;
+    uint8_t *src = get_r(z, gb);
+    uint8_t res = *reg_a - *src;
+    // Z flag
+    if (res == 0)
+    {
+        set_flag(FLAG_Z, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_Z, gb);
+    }
+    // H flag
+    if (((int16_t)(*reg_a & 0xF) - ((int16_t)(*src & 0xF))) < 0)
+    {
+        set_flag(FLAG_H, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_H, gb);
+    }
+    // C flag
+    if (*src > *reg_a)
+    {
+        set_flag(FLAG_C, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_C, gb);
+    }
+    set_flag(FLAG_N, gb);
+}
+
+void ret_cc(uint8_t y, gb_t *gb)
+{
+    uint8_t met = 0;
+    switch (y)
+    {
+    case 0:
+        if (get_flag(FLAG_Z, gb) == 0)
+        {
+            met = 1;
+        }
+        break;
+    case 1:
+        if (get_flag(FLAG_Z, gb) == 1)
+        {
+            met = 1;
+        }
+        break;
+    case 2:
+        if (get_flag(FLAG_C, gb) == 0)
+        {
+            met = 1;
+        }
+        break;
+    case 3:
+        if (get_flag(FLAG_C, gb) == 1)
+        {
+            met = 1;
+        }
+        break;
+    default:
+        break;
+    }
+    if (met == 1)
+    {
+        // TODO ret_cc check
+        set_pc(*pop_stack(gb), gb);
+    }
 }
 
 uint8_t fetch_opcode(gb_t *gb)
@@ -584,15 +749,62 @@ void parse_opcode(uint8_t opcode, gb_t *gb)
             sbc_a_r(z, gb);
             break;
         case 4:
+            and_a_r(z, gb);
+            break;
         case 5:
+            xor_a_r(z, gb);
+            break;
         case 6:
+            or_a_r(z, gb);
+            break;
         case 7:
+            cp_a_r(z, gb);
+            break;
         default:
             break;
         }
         break;
     case 3:
+        switch (z)
+        {
+        case 0:
+            switch (y)
+            {
+            case 0:
+            case 1:
+            case 2:
+            case 3:
+                ret_cc(y, gb);
+            case 4:
 
+                break;
+            case 5:
+                break;
+            case 6:
+                break;
+            case 7:
+                break;
+            default:
+                break;
+            }
+            break;
+        case 1:
+            break;
+        case 2:
+            break;
+        case 3:
+            break;
+        case 4:
+            break;
+        case 5:
+            break;
+        case 6:
+            break;
+        case 7:
+            break;
+        default:
+            break;
+        }
     default:
         break;
     }
