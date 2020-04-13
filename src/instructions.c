@@ -2,6 +2,9 @@
 #include <stdio.h>
 #include <stdbool.h>
 
+#define HIGH_BYTE(b) (b >> 8)
+#define LOW_BYTE(b) (b & 0xFF)
+
 uint8_t *get_r(uint8_t y, gb_t *gb)
 {
     switch (y)
@@ -56,6 +59,11 @@ uint8_t fetch_n(gb_t *gb)
     return gb->mem[gb->reg.pc + 1];
 }
 
+int8_t fetch_d(gb_t *gb)
+{
+    return (int8_t)gb->mem[gb->reg.pc + 1];
+}
+
 void set_flag(uint8_t flag, gb_t *gb)
 {
     gb->reg.af.reg.lo |= flag;
@@ -93,6 +101,11 @@ uint8_t *pop_stack(gb_t *gb)
 void set_pc(uint16_t pc, gb_t *gb)
 {
     gb->reg.pc = pc;
+}
+
+void set_sp(uint16_t sp, gb_t *gb)
+{
+    gb->reg.sp = sp;
 }
 
 void ld_nn_sp(uint16_t nn, gb_t *gb)
@@ -576,6 +589,211 @@ void ret_cc(uint8_t y, gb_t *gb)
     }
 }
 
+void ldh_n_a(gb_t *gb)
+{
+    uint8_t n = fetch_n(gb);
+    gb->mem[0xFF00 + n] = gb->reg.af.reg.hi;
+}
+
+void add_sp_d(gb_t *gb)
+{
+    uint16_t *sp = &gb->reg.sp;
+    int8_t d = fetch_d(gb);
+    uint16_t res = *sp + d;
+    *sp = res;
+    // H flag
+    if (((*sp & 0xF) + (d & 0xF)) > 0xF)
+    {
+        set_flag(FLAG_H, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_H, gb);
+    }
+    // C flag
+    if (res & 0xFFFF0000 > 0)
+    {
+        set_flag(FLAG_C, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_C, gb);
+    }
+    reset_flag(FLAG_Z, gb);
+    reset_flag(FLAG_N, gb);
+}
+
+void ldh_a_n(gb_t *gb)
+{
+    uint8_t *reg_a = &gb->reg.af.reg.hi;
+    uint8_t n = fetch_n(gb);
+    *reg_a = gb->mem[0xFF00 + n];
+}
+
+void ld_hl_sp(gb_t *gb)
+{
+    uint16_t *reg_hl = &gb->reg.hl.pair;
+    int8_t d = fetch_d(gb);
+    uint16_t res = gb->reg.sp + d;
+    *reg_hl = res;
+    // H flag
+    if (((*reg_hl & 0xF) + (d & 0xF)) > 0xF)
+    {
+        set_flag(FLAG_H, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_H, gb);
+    }
+    // C flag
+    if (res & 0xFFFF0000 > 0)
+    {
+        set_flag(FLAG_C, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_C, gb);
+    }
+    reset_flag(FLAG_Z, gb);
+    reset_flag(FLAG_N, gb);
+}
+
+void pop_rp(uint16_t p, gb_t *gb)
+{
+    uint16_t *rp = get_rp(p, gb);
+    uint8_t hi = gb->mem[gb->reg.sp - 1];
+    uint8_t lo = gb->mem[gb->reg.sp];
+    uint16_t res = (hi << 8) | lo;
+    *rp = res;
+    gb->reg.sp += 2;
+}
+
+void ret(gb_t *gb)
+{
+    uint16_t *sp = &gb->reg.sp;
+    uint8_t hi = gb->mem[*sp - 1];
+    uint8_t lo = gb->mem[*sp];
+    gb->reg.pc = (hi << 8) | lo;
+    *sp -= 2;
+}
+
+void reti(gb_t *gb)
+{
+    // TODO reti
+}
+
+void jp_hl(gb_t *gb)
+{
+    gb->reg.pc = gb->reg.hl.pair;
+}
+
+void ld_sp_hl(gb_t *gb)
+{
+    gb->reg.sp = gb->reg.hl.pair;
+}
+
+void jp_cc_nn(uint8_t y, gb_t *gb)
+{
+    uint16_t nn = fetch_nn(gb);
+
+    switch (y)
+    {
+    case 0:
+        if (get_flag(FLAG_Z, gb) == 0)
+        {
+            gb->reg.pc = nn;
+        }
+        break;
+    case 1:
+        if (get_flag(FLAG_Z, gb) == 1)
+        {
+            gb->reg.pc = nn;
+        }
+        break;
+    case 2:
+        if (get_flag(FLAG_C, gb) == 0)
+        {
+            gb->reg.pc == nn;
+        }
+        break;
+    case 3:
+        if (get_flag(FLAG_C, gb) == 1)
+        {
+            gb->reg.pc == nn;
+        }
+        break;
+    default:
+        break;
+    }
+}
+
+void ldh_c_a(gb_t *gb)
+{
+    gb->mem[0xFF00 + fetch_n(gb)];
+}
+
+void ld_nn_a(gb_t *gb)
+{
+    gb->mem[fetch_nn(gb)] = gb->reg.af.reg.hi;
+}
+
+void ldh_a_c(gb_t *gb)
+{
+    gb->reg.af.reg.hi = gb->mem[0xFF00 + fetch_n(gb)];
+}
+
+void ld_a_nn(gb_t *gb)
+{
+    gb->reg.af.reg.hi = gb->mem[fetch_nn(gb)];
+}
+
+void jp_nn(gb_t *gb)
+{
+    gb->reg.pc = fetch_nn(gb);
+}
+
+void di(gb_t *gb)
+{
+}
+
+void ei(gb_t *gb)
+{
+}
+
+// TODO implement
+void call_cc_nn(uint8_t y, gb_t *gb)
+{
+    uint16_t nn = fetch_nn(gb);
+    switch (y)
+    {
+    case 0:
+        break;
+    case 1:
+        break;
+    case 2:
+        break;
+    case 3:
+        break;
+
+    default:
+        break;
+    }
+}
+
+void push_rp(uint8_t p, gb_t *gb)
+{
+    uint16_t *rp = get_rp(p, gb);
+    gb->mem[--gb->reg.sp] = HIGH_BYTE(*rp);
+    gb->mem[--gb->reg.sp] = LOW_BYTE(*rp);
+}
+
+void call_nn(gb_t *gb)
+{
+    gb->mem[--gb->reg.sp] = HIGH_BYTE(gb->reg.pc);
+    gb->mem[--gb->reg.sp] = LOW_BYTE(gb->reg.pc);
+    gb->reg.pc = fetch_nn(gb);
+}
+
 uint8_t fetch_opcode(gb_t *gb)
 {
     return gb->mem[gb->reg.pc];
@@ -775,8 +993,132 @@ void parse_opcode(uint8_t opcode, gb_t *gb)
             case 2:
             case 3:
                 ret_cc(y, gb);
+                break;
             case 4:
+                ldh_n_a(gb);
+                break;
+            case 5:
+                add_sp_d(gb);
+                break;
+            case 6:
+                ldh_a_n(gb);
+                break;
+            case 7:
+                ld_hl_sp(gb);
+                break;
+            default:
+                break;
+            }
+            break;
+        case 1:
+            switch (q)
+            {
+            case 0:
+                pop_rp(p, gb);
+                break;
+            case 1:
+                switch (p)
+                {
+                case 0:
+                    ret(gb);
+                    break;
+                case 1:
+                    reti(gb);
+                    break;
+                case 2:
+                    jp_hl(gb);
+                    break;
+                case 3:
+                    ld_sp_hl(gb);
+                default:
+                    break;
+                }
+                break;
 
+            default:
+                break;
+            }
+            break;
+        case 2:
+            switch (y)
+            {
+            case 0:
+            case 1:
+            case 2:
+            case 3:
+                jp_cc_nn(y, gb);
+                break;
+            case 4:
+                ldh_c_a(gb);
+                break;
+            case 5:
+                ld_nn_a(gb);
+                break;
+            case 6:
+                ldh_a_c(gb);
+                break;
+            case 7:
+                ld_a_nn(gb);
+                break;
+            default:
+                break;
+            }
+            break;
+        case 3:
+            switch (y)
+            {
+            case 0:
+                jp_nn(gb);
+                break;
+            case 1:
+                // CB prefix
+                break;
+            case 6:
+                di(gb);
+                break;
+            case 7:
+                ei(gb);
+                break;
+            default:
+                break;
+            }
+            break;
+        case 4:
+            switch (y)
+            {
+            case 0:
+            case 1:
+            case 2:
+            case 3:
+                call_cc_nn(y, gb);
+                break;
+            default:
+                break;
+            }
+            break;
+        case 5:
+            if (q == 0)
+            {
+                push_rp(p, gb);
+            }
+            else if (q == 1 && p == 0)
+            {
+                call_nn(gb);
+            }
+            break;
+        case 6:
+            switch (y)
+            {
+            case 0:
+                add_a_n();
+                break;
+            case 1:
+                break;
+            case 2:
+                break;
+            case 3:
+                break;
+            case 4:
                 break;
             case 5:
                 break;
@@ -787,18 +1129,6 @@ void parse_opcode(uint8_t opcode, gb_t *gb)
             default:
                 break;
             }
-            break;
-        case 1:
-            break;
-        case 2:
-            break;
-        case 3:
-            break;
-        case 4:
-            break;
-        case 5:
-            break;
-        case 6:
             break;
         case 7:
             break;
