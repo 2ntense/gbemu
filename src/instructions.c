@@ -320,15 +320,13 @@ void ld_r_r(uint8_t y, uint8_t z, gb_t *gb)
     *dest = *get_r(z, gb);
 }
 
-// TODO add_a_r check opcode 0xC6
-void add_a_r(uint8_t z, gb_t *gb)
+void alu_add(uint8_t src, gb_t *gb)
 {
     uint8_t *reg_a = &gb->reg.af.reg.hi;
-    uint8_t *src = get_r(z, gb);
-    uint16_t res = *reg_a + *src;
+    uint16_t res = *reg_a + src;
     *reg_a = (uint8_t)(res & 0xFF);
     // H flag
-    if (((*reg_a & 0xF) + (*src & 0xF)) > 0xF)
+    if (((*reg_a & 0xF) + (src & 0xF)) > 0xF)
     {
         set_flag(FLAG_H, gb);
     }
@@ -357,15 +355,13 @@ void add_a_r(uint8_t z, gb_t *gb)
     reset_flag(FLAG_N, gb);
 }
 
-// TODO add_a_r check opcode 0xC6
-void adc_a_r(uint8_t z, gb_t *gb)
+void alu_adc(uint8_t src, gb_t *gb)
 {
     uint8_t *reg_a = &gb->reg.af.reg.hi;
-    uint8_t *src = get_r(z, gb);
-    uint16_t res = *reg_a + *src + get_flag(FLAG_C, gb);
+    uint16_t res = *reg_a + src + get_flag(FLAG_C, gb);
     *reg_a = (uint8_t)(res & 0xFF);
     // H flag
-    if (((*reg_a & 0xF) + (*src & 0xF)) > 0xF)
+    if (((*reg_a & 0xF) + (src & 0xF)) > 0xF)
     {
         set_flag(FLAG_H, gb);
     }
@@ -394,12 +390,11 @@ void adc_a_r(uint8_t z, gb_t *gb)
     reset_flag(FLAG_N, gb);
 }
 
-void sub_a_r(uint8_t z, gb_t *gb)
+void alu_sub(uint8_t src, gb_t *gb)
 {
     uint8_t *reg_a = &gb->reg.af.reg.hi;
-    uint8_t *src = get_r(z, gb);
     // TODO check expression
-    if (((int16_t)(*reg_a & 0xF) - ((int16_t)(*src & 0xF))) < 0)
+    if (((int16_t)(*reg_a & 0xF) - ((int16_t)(src & 0xF))) < 0)
     {
         set_flag(FLAG_H, gb);
     }
@@ -408,7 +403,7 @@ void sub_a_r(uint8_t z, gb_t *gb)
         reset_flag(FLAG_H, gb);
     }
     // C flag
-    if (*src > *reg_a)
+    if (src > *reg_a)
     {
         set_flag(FLAG_C, gb);
     }
@@ -416,7 +411,7 @@ void sub_a_r(uint8_t z, gb_t *gb)
     {
         reset_flag(FLAG_C, gb);
     }
-    *reg_a -= *src;
+    *reg_a -= src;
     // Z flag
     if (*reg_a == 0)
     {
@@ -429,12 +424,11 @@ void sub_a_r(uint8_t z, gb_t *gb)
     set_flag(FLAG_N, gb);
 }
 
-void sbc_a_r(uint8_t z, gb_t *gb)
+void alu_sbc(uint8_t src, gb_t *gb)
 {
     uint8_t *reg_a = &gb->reg.af.reg.hi;
-    uint8_t *src = get_r(z, gb);
     // TODO check expression
-    if (((int16_t)(*reg_a & 0xF) - ((int16_t)(*src & 0xF))) < 0)
+    if (((int16_t)(*reg_a & 0xF) - ((int16_t)(src & 0xF))) < 0)
     {
         set_flag(FLAG_H, gb);
     }
@@ -443,7 +437,7 @@ void sbc_a_r(uint8_t z, gb_t *gb)
         reset_flag(FLAG_H, gb);
     }
     // C flag
-    if ((*src + get_flag(FLAG_C, gb)) > *reg_a)
+    if ((src + get_flag(FLAG_C, gb)) > *reg_a)
     {
         set_flag(FLAG_C, gb);
     }
@@ -451,7 +445,7 @@ void sbc_a_r(uint8_t z, gb_t *gb)
     {
         reset_flag(FLAG_C, gb);
     }
-    *reg_a -= (*src + get_flag(FLAG_C, gb));
+    *reg_a -= (src + get_flag(FLAG_C, gb));
     // Z flag
     if (*reg_a == 0)
     {
@@ -464,10 +458,10 @@ void sbc_a_r(uint8_t z, gb_t *gb)
     set_flag(FLAG_N, gb);
 }
 
-void and_a_r(uint8_t z, gb_t *gb)
+void alu_and(uint8_t src, gb_t *gb)
 {
     uint8_t *reg_a = &gb->reg.af.reg.hi;
-    *reg_a &= *get_r(z, gb);
+    *reg_a &= src;
     if (*reg_a == 0)
     {
         set_flag(FLAG_Z, gb);
@@ -481,10 +475,10 @@ void and_a_r(uint8_t z, gb_t *gb)
     reset_flag(FLAG_C, gb);
 }
 
-void xor_a_r(uint8_t z, gb_t *gb)
+void alu_xor(uint8_t src, gb_t *gb)
 {
     uint8_t *reg_a = &gb->reg.af.reg.hi;
-    *reg_a ^= *get_r(z, gb);
+    *reg_a ^= src;
     if (*reg_a == 0)
     {
         set_flag(FLAG_Z, gb);
@@ -498,10 +492,10 @@ void xor_a_r(uint8_t z, gb_t *gb)
     reset_flag(FLAG_C, gb);
 }
 
-void or_a_r(uint8_t z, gb_t *gb)
+void alu_or(uint8_t src, gb_t *gb)
 {
     uint8_t *reg_a = &gb->reg.af.reg.hi;
-    *reg_a |= *get_r(z, gb);
+    *reg_a |= src;
     if (*reg_a == 0)
     {
         set_flag(FLAG_Z, gb);
@@ -515,11 +509,10 @@ void or_a_r(uint8_t z, gb_t *gb)
     reset_flag(FLAG_C, gb);
 }
 
-void cp_a_r(uint8_t z, gb_t *gb)
+void alu_cp(uint8_t src, gb_t *gb)
 {
     uint8_t *reg_a = &gb->reg.af.reg.hi;
-    uint8_t *src = get_r(z, gb);
-    uint8_t res = *reg_a - *src;
+    uint8_t res = *reg_a - src;
     // Z flag
     if (res == 0)
     {
@@ -530,7 +523,7 @@ void cp_a_r(uint8_t z, gb_t *gb)
         reset_flag(FLAG_Z, gb);
     }
     // H flag
-    if (((int16_t)(*reg_a & 0xF) - ((int16_t)(*src & 0xF))) < 0)
+    if (((int16_t)(*reg_a & 0xF) - ((int16_t)(src & 0xF))) < 0)
     {
         set_flag(FLAG_H, gb);
     }
@@ -539,7 +532,7 @@ void cp_a_r(uint8_t z, gb_t *gb)
         reset_flag(FLAG_H, gb);
     }
     // C flag
-    if (*src > *reg_a)
+    if (src > *reg_a)
     {
         set_flag(FLAG_C, gb);
     }
@@ -548,6 +541,48 @@ void cp_a_r(uint8_t z, gb_t *gb)
         reset_flag(FLAG_C, gb);
     }
     set_flag(FLAG_N, gb);
+}
+
+// TODO add_a_r check opcode 0xC6
+void add_a_r(uint8_t z, gb_t *gb)
+{
+    alu_add(*get_r(z, gb), gb);
+}
+
+// TODO add_a_r check opcode 0xC6
+void adc_a_r(uint8_t z, gb_t *gb)
+{
+    alu_adc(*get_r(z, gb), gb);
+}
+
+void sub_a_r(uint8_t z, gb_t *gb)
+{
+    alu_sub(*get_r(z, gb), gb);
+}
+
+void sbc_a_r(uint8_t z, gb_t *gb)
+{
+    alu_sbc(*get_r(z, gb), gb);
+}
+
+void and_a_r(uint8_t z, gb_t *gb)
+{
+    alu_and(*get_r(z, gb), gb);
+}
+
+void xor_a_r(uint8_t z, gb_t *gb)
+{
+    alu_xor(*get_r(z, gb), gb);
+}
+
+void or_a_r(uint8_t z, gb_t *gb)
+{
+    alu_or(*get_r(z, gb), gb);
+}
+
+void cp_a_r(uint8_t z, gb_t *gb)
+{
+    alu_cp(*get_r(z, gb), gb);
 }
 
 void ret_cc(uint8_t y, gb_t *gb)
@@ -792,6 +827,51 @@ void call_nn(gb_t *gb)
     gb->mem[--gb->reg.sp] = HIGH_BYTE(gb->reg.pc);
     gb->mem[--gb->reg.sp] = LOW_BYTE(gb->reg.pc);
     gb->reg.pc = fetch_nn(gb);
+}
+
+void add_a_n(gb_t *gb)
+{
+    alu_add(fetch_n(gb), gb);
+}
+
+void adc_a_n(gb_t *gb)
+{
+    alu_adc(fetch_n(gb), gb);
+}
+
+void sub_a_n(gb_t *gb)
+{
+    alu_sub(fetch_n(gb), gb);
+}
+
+void sbc_a_n(gb_t *gb)
+{
+    alu_sbc(fetch_n(gb), gb);
+}
+
+void and_a_n(gb_t *gb)
+{
+    alu_and(fetch_n(gb), gb);
+}
+
+void xor_a_n(gb_t *gb)
+{
+    alu_xor(fetch_n(gb), gb);
+}
+
+void or_a_n(gb_t *gb)
+{
+    alu_or(fetch_n(gb), gb);
+}
+
+void cp_a_n(gb_t *gb)
+{
+    alu_cp(fetch_n(gb), gb);
+}
+
+void rst(uint8_t y, gb_t *gb)
+{
+    gb->reg.pc = y * 8;
 }
 
 uint8_t fetch_opcode(gb_t *gb)
@@ -1110,27 +1190,35 @@ void parse_opcode(uint8_t opcode, gb_t *gb)
             switch (y)
             {
             case 0:
-                add_a_n();
+                add_a_n(gb);
                 break;
             case 1:
+                adc_a_n(gb);
                 break;
             case 2:
+                sub_a_n(gb);
                 break;
             case 3:
+                sbc_a_n(gb);
                 break;
             case 4:
+                and_a_n(gb);
                 break;
             case 5:
+                xor_a_n(gb);
                 break;
             case 6:
+                or_a_n(gb);
                 break;
             case 7:
+                cp_a_n(gb);
                 break;
             default:
                 break;
             }
             break;
         case 7:
+            rst(y, gb);
             break;
         default:
             break;
