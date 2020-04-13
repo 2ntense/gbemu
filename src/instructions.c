@@ -18,6 +18,8 @@ uint8_t *get_r(uint8_t y, gb_t *gb)
         return &gb->reg.hl.reg.hi;
     case 5:
         return &gb->reg.hl.reg.lo;
+    case 6:
+        return &gb->mem[gb->reg.hl.pair];
     case 7:
         return &gb->reg.af.reg.hi;
     default:
@@ -283,6 +285,132 @@ void ccf(gb_t *gb)
     reset_flag(FLAG_H, gb);
 }
 
+void halt(gb_t *gb)
+{
+    // TODO HALT
+}
+
+//  TODO ld_r_r testing
+void ld_r_r(uint8_t y, uint8_t z, gb_t *gb)
+{
+    uint8_t *dest = get_r(y, gb);
+    *dest = *get_r(z, gb);
+}
+
+// TODO add_a_r check opcode 0xC6
+void add_a_r(uint8_t z, gb_t *gb)
+{
+    uint8_t *reg_a = &gb->reg.af.reg.hi;
+    uint8_t *src = get_r(z, gb);
+    uint16_t res = *reg_a + *src;
+    *reg_a = (uint8_t)(res & 0xFF);
+    // H flag
+    if (((*reg_a & 0xF) + (*src & 0xF)) > 0xF)
+    {
+        set_flag(FLAG_H, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_H, gb);
+    }
+    // C flag
+    if (res & 0xFF00 > 0)
+    {
+        set_flag(FLAG_C, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_C, gb);
+    }
+    // Z flag
+    if (*reg_a == 0)
+    {
+        set_flag(FLAG_Z, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_Z, gb);
+    }
+    reset_flag(FLAG_N, gb);
+}
+
+// TODO add_a_r check opcode 0xC6
+void adc_a_r(uint8_t z, gb_t *gb)
+{
+    uint8_t *reg_a = &gb->reg.af.reg.hi;
+    uint8_t *src = get_r(z, gb);
+    uint16_t res = *reg_a + *src + get_flag(FLAG_C, gb);
+    *reg_a = (uint8_t)(res & 0xFF);
+    // H flag
+    if (((*reg_a & 0xF) + (*src & 0xF)) > 0xF)
+    {
+        set_flag(FLAG_H, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_H, gb);
+    }
+    // C flag
+    if (res & 0xFF00 > 0)
+    {
+        set_flag(FLAG_C, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_C, gb);
+    }
+    // Z flag
+    if (*reg_a == 0)
+    {
+        set_flag(FLAG_Z, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_Z, gb);
+    }
+    reset_flag(FLAG_N, gb);
+}
+
+void sub_a_r(uint8_t z, gb_t *gb)
+{
+    uint8_t *reg_a = &gb->reg.af.reg.hi;
+    uint8_t *src = get_r(z, gb);
+    // TODO check expression
+    if (((int16_t)(*reg_a & 0xF) - ((int16_t)(*src & 0xF))) < 0)
+    {
+        set_flag(FLAG_H, gb);
+    }
+    else
+    {
+        set_flag(FLAG_H, gb);
+    }
+    // C flag
+    if (*src > *reg_a)
+    {
+        set_flag(FLAG_C, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_C, gb);
+    }
+    *reg_a -= *src;
+    // Z flag
+    if (*reg_a == 0)
+    {
+        set_flag(FLAG_Z, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_Z, gb);
+    }
+    set_flag(FLAG_N, gb);
+}
+
+void sbc_a_r(uint8_t z, gb_t *gb)
+{
+    
+}
+
 uint8_t fetch_opcode(gb_t *gb)
 {
     return gb->mem[gb->reg.pc];
@@ -431,7 +559,38 @@ void parse_opcode(uint8_t opcode, gb_t *gb)
             break;
         }
     case 1:
+        if (z == 6 && y == 6)
+        {
+            halt(gb);
+        }
+        else
+        {
+            ld_r_r(y, z, gb);
+        }
+        break;
     case 2:
+        switch (y)
+        {
+        case 0:
+            add_a_r(z, gb);
+            break;
+        case 1:
+            adc_a_r(z, gb);
+            break;
+        case 2:
+            sub_a_r(z, gb);
+            break;
+        case 3:
+            sbc_a_r(z, gb);
+            break;
+        case 4:
+        case 5:
+        case 6:
+        case 7:
+        default:
+            break;
+        }
+        break;
     case 3:
 
     default:
