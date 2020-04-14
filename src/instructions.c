@@ -108,24 +108,95 @@ void set_sp(uint16_t sp, gb_t *gb)
     gb->reg.sp = sp;
 }
 
-void ld_nn_sp(uint16_t nn, gb_t *gb)
-{
-    gb->mem[nn] = gb->reg.sp;
-}
-
-void ld_rp_nn(uint16_t *rp, uint16_t nn)
-{
-    *rp = nn;
-}
-
 void nop(gb_t *gb)
 {
     gb->reg.pc += 1;
 }
 
-void add_hl_rp(uint16_t *rp, gb_t *gb)
+void ld_nn_sp(gb_t *gb)
 {
-    // gb->reg.hl.pair = *rp;
+    gb->mem[fetch_nn(gb)] = gb->reg.sp;
+}
+
+void stop(gb_t *gb)
+{
+    // next byte is 0x00
+}
+
+void jr_d(gb_t *gb)
+{
+    gb->reg.pc += fetch_d(gb);
+}
+
+void jr_cc_d(uint8_t y, gb_t *gb)
+{
+    uint8_t met = 0;
+    switch (y)
+    {
+    case 4:
+        if (get_flag(FLAG_Z, gb) == 0)
+        {
+            met = 1;
+        }
+        break;
+    case 5:
+        if (get_flag(FLAG_Z, gb) == 1)
+        {
+            met = 1;
+        }
+    case 6:
+        if (get_flag(FLAG_C, gb) == 0)
+        {
+            met = 1;
+        }
+    case 7:
+        if (get_flag(FLAG_C, gb) == 1)
+        {
+            met = 1;
+        }
+        break;
+    default:
+        break;
+    }
+    if (met == 1)
+    {
+        gb->reg.pc += fetch_d(gb);
+    }
+    else
+    {
+    }
+}
+
+void ld_rp_nn(uint8_t p, gb_t *gb)
+{
+    *get_rp(p, gb) = fetch_nn(gb);
+}
+
+void add_hl_rp(uint8_t p, gb_t *gb)
+{
+    uint16_t *reg_hl = &gb->reg.hl.pair;
+    uint16_t *rp = get_rp(p, gb);
+    uint32_t res = *reg_hl + *rp;
+    *reg_hl = (uint16_t)(res & 0xFFFF);
+    // H flag
+    if (((*reg_hl & 0xFF) + (*rp & 0xFF)) > 0xFF)
+    {
+        set_flag(FLAG_H, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_H, gb);
+    }
+    // C flag
+    if (res & 0xFFFF0000 > 0)
+    {
+        set_flag(FLAG_C, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_C, gb);
+    }
+    reset_flag(FLAG_N, gb);
 }
 
 void ld_bc_a(gb_t *gb)
@@ -899,23 +970,31 @@ void parse_opcode(uint8_t opcode, gb_t *gb)
                 nop(gb);
                 break;
             case 1:
-                ld_nn_sp(fetch_nn(gb), gb);
+                ld_nn_sp(gb);
                 break;
             case 2:
-                // stop()
+                stop(gb);
+                break;
             case 3:
+                jr_d(gb);
+                break;
+            case 4:
+            case 5:
+            case 6:
+            case 7:
+                jr_cc_d(y, gb);
+                break;
             default:
                 break;
             }
-
         case 1:
             switch (q)
             {
             case 0:
-                ld_rp_nn(get_rp(p, gb), fetch_nn(gb));
+                ld_rp_nn(p, gb);
                 break;
             case 1:
-                add_hl_rp(get_rp(p, gb), gb);
+                add_hl_rp(p, gb);
                 break;
             default:
                 break;
@@ -1227,42 +1306,6 @@ void parse_opcode(uint8_t opcode, gb_t *gb)
         break;
     }
 }
-
-// void execute_opcode(uint8_t opcode, gb_t *gb)
-// {
-//     opcode = gb->mem[gb->reg.pc];
-//     gb->reg.pc++;
-//     switch (opcode)
-//     {
-//     case 0x06: // lD nn,n
-//         ld_nn_n(gb->reg.b, gb->mem[gb->reg.pc]);
-//         gb->reg.pc++;
-//         break;
-//     case 0x0E:
-//         ld_nn_n(gb->reg.c, gb->mem[gb->reg.pc]);
-//         gb->reg.pc++;
-//         break;
-//     case 0x16:
-//         ld_nn_n(gb->reg.d, gb->mem[gb->reg.pc]);
-//         gb->reg.pc++;
-//         break;
-//     case 0x1E:
-//         ld_nn_n(gb->reg.e, gb->mem[gb->reg.pc]);
-//         gb->reg.pc++;
-//         break;
-//     case 0x26:
-//         ld_nn_n(gb->reg.h, gb->mem[gb->reg.pc]);
-//         gb->reg.pc++;
-//         break;
-//     case 0x2E:
-//         ld_nn_n(gb->reg.l, gb->mem[gb->reg.pc]);
-//         gb->reg.pc++;
-//         break;
-
-//     default:
-//         break;
-//     }
-// }
 
 void post_power_seq(gb_t *gb)
 {
