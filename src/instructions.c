@@ -51,7 +51,8 @@ uint16_t *get_rp(uint8_t p, gb_t *gb)
 
 uint16_t fetch_nn(gb_t *gb)
 {
-    return (gb->mem[gb->reg.pc + 1] << 8) | gb->mem[gb->reg.pc + 2];
+    // return (gb->mem[gb->reg.pc + 1] << 8) | gb->mem[gb->reg.pc + 2];
+    return (gb->mem[gb->reg.pc + 2] << 8) | gb->mem[gb->reg.pc + 1];
 }
 
 uint8_t fetch_n(gb_t *gb)
@@ -62,6 +63,19 @@ uint8_t fetch_n(gb_t *gb)
 int8_t fetch_d(gb_t *gb)
 {
     return (int8_t)gb->mem[gb->reg.pc + 1];
+}
+
+uint8_t read_byte(gb_t *gb)
+{
+    gb->reg.pc++;
+    return gb->mem[gb->reg.pc];
+}
+
+uint16_t read_short(gb_t *gb)
+{
+    uint8_t lo = read_byte(gb);
+    uint8_t hi = read_byte(gb);
+    return (hi << 8) | lo;
 }
 
 void set_flag(uint8_t flag, gb_t *gb)
@@ -98,16 +112,6 @@ uint8_t *pop_stack(gb_t *gb)
     return &gb->mem[--gb->reg.sp];
 }
 
-void set_pc(uint16_t pc, gb_t *gb)
-{
-    gb->reg.pc = pc;
-}
-
-void set_sp(uint16_t sp, gb_t *gb)
-{
-    gb->reg.sp = sp;
-}
-
 void nop(gb_t *gb)
 {
     gb->reg.pc++;
@@ -115,10 +119,10 @@ void nop(gb_t *gb)
 
 void ld_nn_sp(gb_t *gb)
 {
-    uint16_t nn = fetch_nn(gb);
+    uint16_t nn = read_short(gb);
     gb->mem[nn] = LOW_BYTE(gb->reg.sp);
     gb->mem[nn + 1] = HIGH_BYTE(gb->reg.sp);
-    gb->reg.pc += 3;
+    gb->reg.pc++;
 }
 
 void stop(gb_t *gb)
@@ -129,14 +133,14 @@ void stop(gb_t *gb)
 
 void jr_d(gb_t *gb)
 {
-    uint8_t d = fetch_d(gb);
+    int8_t d = (int8_t)read_byte(gb);
     if (d == 0)
     {
         gb->reg.pc++;
     }
     else
     {
-        gb->reg.pc = d;
+        gb->reg.pc += d;
     }
 }
 
@@ -170,22 +174,23 @@ void jr_cc_d(uint8_t y, gb_t *gb)
     default:
         break;
     }
-    if (met == 1)
+    int8_t d = (int8_t)read_byte(gb);
+    if (met == 1 && d != 0)
     {
-        uint8_t d = fetch_d(gb);
-        if (d > 0)
-        {
-            gb->reg.pc = d;
-            return;
-        }
+        gb->reg.pc += d;
     }
-    gb->reg.pc++;
+    else
+    {
+        gb->reg.pc++;
+    }
 }
 
 void ld_rp_nn(uint8_t p, gb_t *gb)
 {
-    *get_rp(p, gb) = fetch_nn(gb);
-    gb->reg.pc += 3;
+    uint16_t nn = read_short(gb);
+    uint16_t *rp = get_rp(p, gb);
+    *rp = nn;
+    gb->reg.pc++;
 }
 
 void add_hl_rp(uint8_t p, gb_t *gb)
@@ -294,9 +299,10 @@ void dec_r(uint8_t y, gb_t *gb)
 
 void ld_r_n(uint8_t y, gb_t *gb)
 {
+    uint8_t n = read_byte(gb);
     uint8_t *r = get_r(y, gb);
-    *r = fetch_n(gb);
-    gb->reg.pc += 2;
+    *r = n;
+    gb->reg.pc++;
 }
 
 void rlca(gb_t *gb)
@@ -426,6 +432,7 @@ void ccf(gb_t *gb)
 void halt(gb_t *gb)
 {
     // TODO HALT
+    gb->reg.pc++;
 }
 
 //  TODO ld_r_r testing
@@ -744,7 +751,7 @@ void ret_cc(uint8_t y, gb_t *gb)
     if (met == 1)
     {
         // TODO ret_cc check
-        set_pc(*pop_stack(gb), gb);
+        gb->reg.pc = *pop_stack(gb);
     }
     else
     {
@@ -755,15 +762,15 @@ void ret_cc(uint8_t y, gb_t *gb)
 void ldh_n_a(gb_t *gb)
 {
     // TODO add check, address must between ff00 - ffff
-    uint8_t n = fetch_n(gb);
+    uint8_t n = read_byte(gb);
     gb->mem[0xFF00 + n] = gb->reg.af.reg.hi;
-    gb->reg.pc += 2;
+    gb->reg.pc++;
 }
 
 void add_sp_d(gb_t *gb)
 {
     uint16_t *sp = &gb->reg.sp;
-    int8_t d = fetch_d(gb);
+    int8_t d = read_byte(gb);
     uint16_t res = *sp + d;
     *sp = res;
     // H flag
@@ -786,21 +793,22 @@ void add_sp_d(gb_t *gb)
     }
     reset_flag(FLAG_Z, gb);
     reset_flag(FLAG_N, gb);
-    gb->reg.pc += 2;
+    gb->reg.pc++;
 }
 
 void ldh_a_n(gb_t *gb)
 {
     // TODO add check, address must between ff00 - ffff
     uint8_t *reg_a = &gb->reg.af.reg.hi;
-    *reg_a = gb->mem[0xFF00 + fetch_n(gb)];
-    gb->reg.pc += 2;
+    uint8_t n = read_byte(gb);
+    *reg_a = gb->mem[0xFF00 + n];
+    gb->reg.pc++;
 }
 
 void ld_hl_sp(gb_t *gb)
 {
     uint16_t *reg_hl = &gb->reg.hl.pair;
-    int8_t d = fetch_d(gb);
+    int8_t d = read_byte(gb);
     uint16_t res = gb->reg.sp + d;
     *reg_hl = res;
     // H flag
@@ -823,7 +831,7 @@ void ld_hl_sp(gb_t *gb)
     }
     reset_flag(FLAG_Z, gb);
     reset_flag(FLAG_N, gb);
-    gb->reg.pc += 2;
+    gb->reg.pc++;
 }
 
 void pop_rp(uint16_t p, gb_t *gb)
@@ -833,7 +841,8 @@ void pop_rp(uint16_t p, gb_t *gb)
     uint8_t lo = gb->mem[gb->reg.sp];
     uint16_t res = (hi << 8) | lo;
     *rp = res;
-    gb->reg.sp += 2;
+    gb->reg.pc++;
+    gb->reg.sp++;
 }
 
 void ret(gb_t *gb)
@@ -848,6 +857,7 @@ void ret(gb_t *gb)
 void reti(gb_t *gb)
 {
     // TODO reti
+    ret(gb);
 }
 
 void jp_hl(gb_t *gb)
@@ -892,7 +902,7 @@ void jp_cc_nn(uint8_t y, gb_t *gb)
     default:
         break;
     }
-    uint16_t nn = fetch_nn(gb);
+    uint16_t nn = read_short(gb);
     if (met == 1 && nn > 0)
     {
         gb->reg.pc = nn;
@@ -911,8 +921,9 @@ void ldh_c_a(gb_t *gb)
 
 void ld_nn_a(gb_t *gb)
 {
-    gb->mem[fetch_nn(gb)] = gb->reg.af.reg.hi;
-    gb->reg.pc += 3;
+    uint16_t nn = read_short(gb);
+    gb->mem[nn] = gb->reg.af.reg.hi;
+    gb->reg.pc++;
 }
 
 void ldh_a_c(gb_t *gb)
@@ -923,26 +934,29 @@ void ldh_a_c(gb_t *gb)
 
 void ld_a_nn(gb_t *gb)
 {
-    gb->reg.af.reg.hi = gb->mem[fetch_nn(gb)];
-    gb->reg.pc += 3;
+    uint16_t nn = read_short(gb);
+    gb->reg.af.reg.hi = gb->mem[nn];
+    gb->reg.pc++;
 }
 
 void jp_nn(gb_t *gb)
 {
-    gb->reg.pc = fetch_nn(gb);
+    uint16_t nn = read_short(gb);
+    gb->reg.pc = nn;
 }
 
 void di(gb_t *gb)
 {
     // TODO di
+    gb->reg.pc++;
 }
 
 void ei(gb_t *gb)
 {
     // TODO ei
+    gb->reg.pc++;
 }
 
-// TODO implement
 void call_cc_nn(uint8_t y, gb_t *gb)
 {
     uint8_t met = 0;
@@ -975,14 +989,14 @@ void call_cc_nn(uint8_t y, gb_t *gb)
     default:
         break;
     }
-    uint16_t nn = fetch_nn(gb);
+    uint16_t nn = read_byte(gb);
     if (met == 1 && nn > 0)
     {
         gb->reg.pc = nn;
     }
     else
     {
-        gb->reg.pc += 3;
+        gb->reg.pc++;
     }
 }
 
@@ -998,63 +1012,71 @@ void call_nn(gb_t *gb)
 {
     gb->mem[--gb->reg.sp] = HIGH_BYTE(gb->reg.pc);
     gb->mem[--gb->reg.sp] = LOW_BYTE(gb->reg.pc);
-    uint16_t nn = fetch_nn(gb);
+    uint16_t nn = read_short(gb);
     if (nn > 0)
     {
-        gb->reg.pc = fetch_nn(gb);
+        gb->reg.pc = nn;
     }
     else
     {
-        gb->reg.pc += 3;
+        gb->reg.pc++;
     }
 }
 
 void add_a_n(gb_t *gb)
 {
-    alu_add(fetch_n(gb), gb);
-    gb->reg.pc += 2;
+    uint8_t n = read_byte(gb);
+    alu_add(n, gb);
+    gb->reg.pc++;
 }
 
 void adc_a_n(gb_t *gb)
 {
-    alu_adc(fetch_n(gb), gb);
-    gb->reg.pc += 2;
+    uint8_t n = read_byte(gb);
+    alu_adc(n, gb);
+    gb->reg.pc++;
 }
 
 void sub_a_n(gb_t *gb)
 {
-    alu_sub(fetch_n(gb), gb);
-    gb->reg.pc += 2;
+    uint8_t n = read_byte(gb);
+    alu_sub(n, gb);
+    gb->reg.pc++;
 }
 
 void sbc_a_n(gb_t *gb)
 {
-    alu_sbc(fetch_n(gb), gb);
-    gb->reg.pc += 2;
+    uint8_t n = read_byte(gb);
+    alu_sbc(n, gb);
+    gb->reg.pc++;
 }
 
 void and_a_n(gb_t *gb)
 {
-    alu_and(fetch_n(gb), gb);
-    gb->reg.pc += 2;
+    uint8_t n = read_byte(gb);
+    alu_and(n, gb);
+    gb->reg.pc++;
 }
 
 void xor_a_n(gb_t *gb)
 {
-    alu_xor(fetch_n(gb), gb);
-    gb->reg.pc += 2;
+    uint8_t n = read_byte(gb);
+    alu_xor(n, gb);
+    gb->reg.pc++;
 }
 
 void or_a_n(gb_t *gb)
 {
-    alu_or(fetch_n(gb), gb);
-    gb->reg.pc += 2;
+    uint8_t n = read_byte(gb);
+    alu_or(n, gb);
+    gb->reg.pc++;
 }
 
 void cp_a_n(gb_t *gb)
 {
-    alu_cp(fetch_n(gb), gb);
-    gb->reg.pc += 2;
+    uint8_t n = read_byte(gb);
+    alu_cp(n, gb);
+    gb->reg.pc++;
 }
 
 void rst(uint8_t y, gb_t *gb)
@@ -1062,10 +1084,10 @@ void rst(uint8_t y, gb_t *gb)
     gb->reg.pc = y * 8;
 }
 
-uint8_t fetch_opcode(gb_t *gb)
-{
-    return gb->mem[gb->reg.pc];
-}
+// uint8_t fetch_opcode(gb_t *gb)
+// {
+//     return gb->mem[gb->reg.pc];
+// }
 
 void parse_opcode(uint8_t opcode, gb_t *gb)
 {
@@ -1075,7 +1097,7 @@ void parse_opcode(uint8_t opcode, gb_t *gb)
     uint8_t p = (opcode >> 4) & 0b11;
     uint8_t q = (opcode >> 3) & 0b1;
 #ifdef DEBUG
-    printf("Parsing x:%d, y:%d, z:%d, p:%d, q:%d\n", x, y, z, p, q);
+    printf("Parsing pc:%04x, opcode:%02x, x:%d, y:%d, z:%d, p:%d, q:%d\n", gb->reg.pc, opcode, x, y, z, p, q);
 #endif
     switch (x)
     {
@@ -1087,37 +1109,39 @@ void parse_opcode(uint8_t opcode, gb_t *gb)
             {
             case 0:
                 nop(gb);
-                break;
+                return;
             case 1:
                 ld_nn_sp(gb);
-                break;
+                return;
             case 2:
                 stop(gb);
-                break;
+                return;
             case 3:
                 jr_d(gb);
-                break;
+                return;
             case 4:
             case 5:
             case 6:
             case 7:
                 jr_cc_d(y, gb);
-                break;
+                return;
             default:
-                break;
+                return;
             }
+            return;
         case 1:
             switch (q)
             {
             case 0:
                 ld_rp_nn(p, gb);
-                break;
+                return;
             case 1:
                 add_hl_rp(p, gb);
-                break;
+                return;
             default:
-                break;
+                return;
             }
+            return;
         case 2:
             switch (q)
             {
@@ -1126,99 +1150,100 @@ void parse_opcode(uint8_t opcode, gb_t *gb)
                 {
                 case 0:
                     ld_bc_a(gb);
-                    break;
+                    return;
                 case 1:
                     ld_de_a(gb);
-                    break;
+                    return;
                 case 2:
                     ldi_hl_a(gb);
-                    break;
+                    return;
                 case 3:
                     ldd_hl_a(gb);
-                    break;
+                    return;
                 default:
-                    break;
+                    return;
                 }
-                break;
+                return;
             case 1:
                 switch (p)
                 {
                 case 0:
                     ld_a_bc(gb);
-                    break;
+                    return;
                 case 1:
                     ld_a_de(gb);
-                    break;
+                    return;
                 case 2:
                     ldi_a_hl(gb);
-                    break;
+                    return;
                 case 3:
                     ldd_a_hl(gb);
-                    break;
+                    return;
                 default:
-                    break;
+                    return;
                 }
-                break;
+                return;
             default:
-                break;
+                return;
             }
-            break;
+            return;
         case 3:
             switch (q)
             {
             case 0:
                 inc_rp(p, gb);
-                break;
+                return;
             case 1:
                 dec_rp(p, gb);
-                break;
+                return;
             default:
-                break;
+                return;
             }
-            break;
+            return;
         case 4:
             inc_r(y, gb);
-            break;
+            return;
         case 5:
             dec_r(y, gb);
-            break;
+            return;
         case 6:
             ld_r_n(y, gb);
-            break;
+            return;
         case 7:
             switch (y)
             {
             case 0:
                 rlca(gb);
-                break;
+                return;
             case 1:
                 rrca(gb);
-                break;
+                return;
             case 2:
                 rla(gb);
-                break;
+                return;
             case 3:
                 rra(gb);
-                break;
+                return;
             case 4:
                 daa(gb);
-                break;
+                return;
             case 5:
                 cpl(gb);
-                break;
+                return;
             case 6:
                 scf(gb);
-                break;
+                return;
             case 7:
                 ccf(gb);
-                break;
+                return;
             default:
-                break;
+                return;
             }
-            break;
+            return;
         default:
-            break;
+            return;
         }
+        return;
     case 1:
         if (z == 6 && y == 6)
         {
@@ -1228,38 +1253,38 @@ void parse_opcode(uint8_t opcode, gb_t *gb)
         {
             ld_r_r(y, z, gb);
         }
-        break;
+        return;
     case 2:
         switch (y)
         {
         case 0:
             add_a_r(z, gb);
-            break;
+            return;
         case 1:
             adc_a_r(z, gb);
-            break;
+            return;
         case 2:
             sub_a_r(z, gb);
-            break;
+            return;
         case 3:
             sbc_a_r(z, gb);
-            break;
+            return;
         case 4:
             and_a_r(z, gb);
-            break;
+            return;
         case 5:
             xor_a_r(z, gb);
-            break;
+            return;
         case 6:
             or_a_r(z, gb);
-            break;
+            return;
         case 7:
             cp_a_r(z, gb);
-            break;
+            return;
         default:
-            break;
+            return;
         }
-        break;
+        return;
     case 3:
         switch (z)
         {
@@ -1271,52 +1296,51 @@ void parse_opcode(uint8_t opcode, gb_t *gb)
             case 2:
             case 3:
                 ret_cc(y, gb);
-                break;
+                return;
             case 4:
                 ldh_n_a(gb);
-                break;
+                return;
             case 5:
                 add_sp_d(gb);
-                break;
+                return;
             case 6:
                 ldh_a_n(gb);
-                break;
+                return;
             case 7:
                 ld_hl_sp(gb);
-                break;
+                return;
             default:
-                break;
+                return;
             }
-            break;
+            return;
         case 1:
             switch (q)
             {
             case 0:
                 pop_rp(p, gb);
-                break;
+                return;
             case 1:
                 switch (p)
                 {
                 case 0:
                     ret(gb);
-                    break;
+                    return;
                 case 1:
                     reti(gb);
-                    break;
+                    return;
                 case 2:
                     jp_hl(gb);
-                    break;
+                    return;
                 case 3:
                     ld_sp_hl(gb);
                 default:
-                    break;
+                    return;
                 }
-                break;
-
+                return;
             default:
-                break;
+                return;
             }
-            break;
+            return;
         case 2:
             switch (y)
             {
@@ -1325,42 +1349,42 @@ void parse_opcode(uint8_t opcode, gb_t *gb)
             case 2:
             case 3:
                 jp_cc_nn(y, gb);
-                break;
+                return;
             case 4:
                 ldh_c_a(gb);
-                break;
+                return;
             case 5:
                 ld_nn_a(gb);
-                break;
+                return;
             case 6:
                 ldh_a_c(gb);
-                break;
+                return;
             case 7:
                 ld_a_nn(gb);
-                break;
+                return;
             default:
-                break;
+                return;
             }
-            break;
+            return;
         case 3:
             switch (y)
             {
             case 0:
                 jp_nn(gb);
-                break;
+                return;
             case 1:
                 // CB prefix
-                break;
+                return;
             case 6:
                 di(gb);
-                break;
+                return;
             case 7:
                 ei(gb);
-                break;
+                return;
             default:
-                break;
+                return;
             }
-            break;
+            return;
         case 4:
             switch (y)
             {
@@ -1369,11 +1393,11 @@ void parse_opcode(uint8_t opcode, gb_t *gb)
             case 2:
             case 3:
                 call_cc_nn(y, gb);
-                break;
+                return;
             default:
-                break;
+                return;
             }
-            break;
+            return;
         case 5:
             if (q == 0)
             {
@@ -1383,46 +1407,47 @@ void parse_opcode(uint8_t opcode, gb_t *gb)
             {
                 call_nn(gb);
             }
-            break;
+            return;
         case 6:
             switch (y)
             {
             case 0:
                 add_a_n(gb);
-                break;
+                return;
             case 1:
                 adc_a_n(gb);
-                break;
+                return;
             case 2:
                 sub_a_n(gb);
-                break;
+                return;
             case 3:
                 sbc_a_n(gb);
-                break;
+                return;
             case 4:
                 and_a_n(gb);
-                break;
+                return;
             case 5:
                 xor_a_n(gb);
-                break;
+                return;
             case 6:
                 or_a_n(gb);
-                break;
+                return;
             case 7:
                 cp_a_n(gb);
-                break;
+                return;
             default:
-                break;
+                return;
             }
-            break;
+            return;
         case 7:
             rst(y, gb);
-            break;
+            return;
         default:
-            break;
+            return;
         }
+        return;
     default:
-        break;
+        return;
     }
 }
 
@@ -1469,9 +1494,9 @@ void post_power_seq(gb_t *gb)
 
 void emulate_cycle(gb_t *gb)
 {
-    uint8_t opcode = fetch_opcode(gb);
-#ifdef DEBUG
-    printf("Fetched opcode: %02x\n", opcode);
-#endif
+    uint8_t opcode = gb->mem[gb->reg.pc];
+    // #ifdef DEBUG
+    //     printf("Fetched opcode: %02x\n", opcode);
+    // #endif
     parse_opcode(opcode, gb);
 }
