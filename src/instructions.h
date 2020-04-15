@@ -15,5 +15,5 @@
 #define FLAG_C_INDEX 4
 
 extern void emulate_cycle(gb_t *);
-
+extern void post_power_seq(gb_t *);
 #endif
