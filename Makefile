@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Werror
+CFLAGS = -Wall -DDEBUG
 LDFLAGS =
 TARGET = gbemu
 BIN_PATH = ./bin
