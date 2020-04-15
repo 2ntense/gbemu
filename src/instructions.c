@@ -1084,10 +1084,295 @@ void rst(uint8_t y, gb_t *gb)
     gb->reg.pc = y * 8;
 }
 
-// uint8_t fetch_opcode(gb_t *gb)
-// {
-//     return gb->mem[gb->reg.pc];
-// }
+void rlc(uint8_t z, gb_t *gb)
+{
+    uint8_t *b = get_r(z, gb);
+    uint8_t msb = *b >> 7;
+    uint8_t res = (*b << 1) | msb;
+    *b = res;
+    if (msb == 0)
+    {
+        set_flag(FLAG_Z, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_Z, gb);
+    }
+    if (msb == 1)
+    {
+        set_flag(FLAG_C, gb);
+    }
+    else
+    {
+        set_flag(FLAG_C, gb);
+    }
+    reset_flag(FLAG_N, gb);
+    reset_flag(FLAG_H, gb);
+}
+
+void rrc(uint8_t z, gb_t *gb)
+{
+    uint8_t *b = get_r(z, gb);
+    uint8_t lsb = *b & 1;
+    uint8_t res = (*b >> 1) | (lsb << 7);
+    *b = res;
+    if (lsb == 0)
+    {
+        set_flag(FLAG_Z, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_Z, gb);
+    }
+    if (lsb == 1)
+    {
+        set_flag(FLAG_C, gb);
+    }
+    else
+    {
+        set_flag(FLAG_C, gb);
+    }
+    reset_flag(FLAG_N, gb);
+    reset_flag(FLAG_H, gb);
+}
+
+void rl(uint8_t z, gb_t *gb)
+{
+    uint8_t *b = get_r(z, gb);
+    uint8_t c = get_flag(FLAG_C, gb);
+    uint8_t msb = *b >> 7;
+    uint8_t res = (*b << 1) | c;
+    *b = res;
+    if (msb == 0)
+    {
+        set_flag(FLAG_Z, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_Z, gb);
+    }
+    if (msb == 1)
+    {
+        set_flag(FLAG_C, gb);
+    }
+    else
+    {
+        set_flag(FLAG_C, gb);
+    }
+    reset_flag(FLAG_N, gb);
+    reset_flag(FLAG_H, gb);
+}
+
+void rr(uint8_t z, gb_t *gb)
+{
+    uint8_t *b = get_r(z, gb);
+    uint8_t c = get_flag(FLAG_C, gb);
+    uint8_t lsb = *b & 1;
+    uint8_t res = (*b >> 1) | (c << 7);
+    *b = res;
+    if (lsb == 0)
+    {
+        set_flag(FLAG_Z, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_Z, gb);
+    }
+    if (lsb == 1)
+    {
+        set_flag(FLAG_C, gb);
+    }
+    else
+    {
+        set_flag(FLAG_C, gb);
+    }
+    reset_flag(FLAG_N, gb);
+    reset_flag(FLAG_H, gb);
+}
+
+void sla(uint8_t z, gb_t *gb)
+{
+    uint8_t *b = get_r(z, gb);
+    uint8_t msb = *b >> 7;
+    uint8_t res = *b << 1;
+    *b = res;
+    if (msb == 0)
+    {
+        set_flag(FLAG_Z, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_Z, gb);
+    }
+    if (msb == 1)
+    {
+        set_flag(FLAG_C, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_C, gb);
+    }
+    reset_flag(FLAG_N, gb);
+    reset_flag(FLAG_H, gb);
+}
+
+void sra(uint8_t z, gb_t *gb)
+{
+    uint8_t *b = get_r(z, gb);
+    uint8_t lsb = *b & 1;
+    uint8_t msb = *b >> 7;
+    uint8_t res = (*b >> 1) | (msb << 7);
+    *b = res;
+    if (lsb == 0)
+    {
+        set_flag(FLAG_Z, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_Z, gb);
+    }
+    if (lsb == 1)
+    {
+        set_flag(FLAG_C, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_C, gb);
+    }
+    reset_flag(FLAG_N, gb);
+    reset_flag(FLAG_H, gb);
+}
+
+void swap(uint8_t z, gb_t *gb)
+{
+    uint8_t *b = get_r(z, gb);
+    // uint8_t lo = *b & 0x0F;
+    // uint8_t hi = *b & 0xF0 >> 4;
+    // uint8_t res = (lo << 4) | hi;
+    uint8_t res = (*b << 4) | (*b >> 4);
+    *b = res;
+    if (res == 0)
+    {
+        set_flag(FLAG_Z, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_Z, gb);
+    }
+    reset_flag(FLAG_N, gb);
+    reset_flag(FLAG_H, gb);
+    reset_flag(FLAG_C, gb);
+}
+
+void srl(uint8_t z, gb_t *gb)
+{
+    uint8_t *b = get_r(z, gb);
+    uint8_t lsb = *b & 1;
+    uint8_t res = *b >> 1;
+    *b = res;
+    if (lsb == 0)
+    {
+        set_flag(FLAG_Z, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_Z, gb);
+    }
+    if (lsb == 1)
+    {
+        set_flag(FLAG_C, gb);
+    }
+    else
+    {
+        reset_flag(FLAG_C, gb);
+    }
+    reset_flag(FLAG_N, gb);
+    reset_flag(FLAG_H, gb);
+}
+
+void bit(uint8_t y, uint8_t z, gb_t *gb)
+{
+    uint8_t *b = get_r(z, gb);
+    uint8_t res = (*b >> y) & 1;
+    if (res == 0)
+    {
+        set_flag(FLAG_Z, gb);
+    }
+    else
+    {
+        set_flag(FLAG_Z, gb);
+    }
+    reset_flag(FLAG_N, gb);
+    set_flag(FLAG_H, gb);
+}
+
+void res(uint8_t y, uint8_t z, gb_t *gb)
+{
+    uint8_t *b = get_r(z, gb);
+    uint8_t res = *b & ~(1 << y);
+    *b = res;
+}
+
+void set(uint8_t y, uint8_t z, gb_t *gb)
+{
+    uint8_t *b = get_r(z, gb);
+    uint8_t res = *b | (1 << y);
+    *b = res;
+}
+
+void parse_cb_opcode(uint8_t opcode, gb_t *gb)
+{
+    uint8_t x = opcode >> 6;
+    uint8_t y = (opcode >> 3) & 0b111;
+    uint8_t z = opcode & 0b111;
+    gb->reg.pc++;
+    switch (x)
+    {
+    case 0:
+        switch (y)
+        {
+        case 0:
+            rlc(z, gb);
+            break;
+        case 1:
+            rrc(z, gb);
+            break;
+        case 2:
+            rl(z, gb);
+            break;
+        case 3:
+            rr(z, gb);
+            break;
+        case 4:
+            sla(z, gb);
+            break;
+        case 5:
+            sra(z, gb);
+            break;
+        case 6:
+            swap(z, gb);
+            break;
+        case 7:
+            srl(z, gb);
+            break;
+        default:
+            break;
+        }
+        break;
+    case 1:
+        bit(y, z, gb);
+        break;
+    case 2:
+        res(y, z, gb);
+        break;
+    case 3:
+        set(y, z, gb);
+        break;
+    default:
+        break;
+    }
+    gb->reg.pc++;
+}
 
 void parse_opcode(uint8_t opcode, gb_t *gb)
 {
@@ -1373,7 +1658,7 @@ void parse_opcode(uint8_t opcode, gb_t *gb)
                 jp_nn(gb);
                 return;
             case 1:
-                // CB prefix
+                parse_cb_opcode(opcode, gb);
                 return;
             case 6:
                 di(gb);
@@ -1495,8 +1780,5 @@ void post_power_seq(gb_t *gb)
 void emulate_cycle(gb_t *gb)
 {
     uint8_t opcode = gb->mem[gb->reg.pc];
-    // #ifdef DEBUG
-    //     printf("Fetched opcode: %02x\n", opcode);
-    // #endif
     parse_opcode(opcode, gb);
 }
