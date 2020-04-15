@@ -49,22 +49,6 @@ uint16_t *get_rp(uint8_t p, gb_t *gb)
     }
 }
 
-uint16_t fetch_nn(gb_t *gb)
-{
-    // return (gb->mem[gb->reg.pc + 1] << 8) | gb->mem[gb->reg.pc + 2];
-    return (gb->mem[gb->reg.pc + 2] << 8) | gb->mem[gb->reg.pc + 1];
-}
-
-uint8_t fetch_n(gb_t *gb)
-{
-    return gb->mem[gb->reg.pc + 1];
-}
-
-int8_t fetch_d(gb_t *gb)
-{
-    return (int8_t)gb->mem[gb->reg.pc + 1];
-}
-
 uint8_t read_byte(gb_t *gb)
 {
     gb->reg.pc++;
@@ -105,6 +89,7 @@ uint8_t get_flag(uint8_t flag, gb_t *gb)
         printf("get_flag, flag not found: 0x%02x", flag);
         break;
     }
+    return 0;
 }
 
 uint8_t *pop_stack(gb_t *gb)
@@ -209,7 +194,7 @@ void add_hl_rp(uint8_t p, gb_t *gb)
         reset_flag(FLAG_H, gb);
     }
     // C flag
-    if (res & 0xFFFF0000 > 0)
+    if ((res & 0xFFFF0000) > 0)
     {
         set_flag(FLAG_C, gb);
     }
@@ -272,28 +257,28 @@ void ldd_a_hl(gb_t *gb)
 void inc_rp(uint8_t p, gb_t *gb)
 {
     uint16_t *rp = get_rp(p, gb);
-    *rp++;
+    *rp += 1;
     gb->reg.pc++;
 }
 
 void dec_rp(uint8_t p, gb_t *gb)
 {
     uint16_t *rp = get_rp(p, gb);
-    *rp--;
+    *rp -= 1;
     gb->reg.pc++;
 }
 
 void inc_r(uint8_t y, gb_t *gb)
 {
     uint8_t *r = get_r(y, gb);
-    *r++;
+    *r += 1;
     gb->reg.pc++;
 }
 
 void dec_r(uint8_t y, gb_t *gb)
 {
     uint8_t *r = get_r(y, gb);
-    *r--;
+    *r -= 1;
     gb->reg.pc++;
 }
 
@@ -326,7 +311,7 @@ void rlca(gb_t *gb)
 void rrca(gb_t *gb)
 {
     uint8_t *a = &gb->reg.af.reg.hi;
-    if (*a & 1 == 1)
+    if ((*a & 1) == 1)
     {
         set_flag(FLAG_C, gb);
     }
@@ -370,7 +355,7 @@ void rla(gb_t *gb)
 void rra(gb_t *gb)
 {
     uint8_t *a = &gb->reg.af.reg.hi;
-    if (*a & 1 == 1)
+    if ((*a & 1) == 1)
     {
         set_flag(FLAG_C, gb);
     }
@@ -458,7 +443,7 @@ void alu_add(uint8_t src, gb_t *gb)
         reset_flag(FLAG_H, gb);
     }
     // C flag
-    if (res & 0xFF00 > 0)
+    if ((res & 0xFF00) > 0)
     {
         set_flag(FLAG_C, gb);
     }
@@ -493,7 +478,7 @@ void alu_adc(uint8_t src, gb_t *gb)
         reset_flag(FLAG_H, gb);
     }
     // C flag
-    if (res & 0xFF00 > 0)
+    if ((res & 0xFF00) > 0)
     {
         set_flag(FLAG_C, gb);
     }
@@ -783,7 +768,7 @@ void add_sp_d(gb_t *gb)
         reset_flag(FLAG_H, gb);
     }
     // C flag
-    if (res & 0xFFFF0000 > 0)
+    if ((res & 0xFFFF0000) > 0)
     {
         set_flag(FLAG_C, gb);
     }
@@ -821,7 +806,7 @@ void ld_hl_sp(gb_t *gb)
         reset_flag(FLAG_H, gb);
     }
     // C flag
-    if (res & 0xFFFF0000 > 0)
+    if ((res & 0xFFFF0000) > 0)
     {
         set_flag(FLAG_C, gb);
     }
@@ -1738,6 +1723,9 @@ void parse_opcode(uint8_t opcode, gb_t *gb)
 
 void post_power_seq(gb_t *gb)
 {
+#ifdef DEBUG
+    printf("Post power sequence...\n");
+#endif
     gb->reg.pc = 0x100;
     gb->reg.af.pair = 0x01B0;
     gb->reg.bc.pair = 0x0013;
